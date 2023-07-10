@@ -146,15 +146,6 @@ app.event('member_left_channel', async ({event}) => {
     await deleteReminder(event);
 })
 
-const parseQuery = (body) => {
-    const queries = body.split('&');
-    const obj = {};
-    const pairs = queries.map(query => {
-        let [key, value] = query.split('=').map(data => decodeURIComponent(data));
-        obj[key] = value;
-    });
-    return obj;
-}
 
 module.exports.handler = async (event, context, callback) => {
     // const data = JSON.parse(event);
