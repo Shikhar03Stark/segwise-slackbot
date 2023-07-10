@@ -12,6 +12,8 @@ provider:
     OPENAI_SECRET_KEY: ${env:OPENAI_SECRET_KEY}
     EXTERNAL_SERVER_PORT: ${env:EXTERNAL_SERVER_PORT}
     EXTERNAL_SERVER_HOST: ${env:EXTERNAL_SERVER_HOST}
+    MESSAGE_QUEUE_ARN: ${env:MESSAGE_QUEUE_ARN}
+    SCHEDULER_ROLE_ARN: ${env:SCHEDULER_ROLE_ARN}
 functions:
   slack:
     handler: src/main.handler

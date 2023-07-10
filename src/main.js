@@ -2,7 +2,7 @@ const {App, AwsLambdaReceiver} = require('@slack/bolt');
 const {Configuration, OpenAIApi} = require('openai');
 const { generateSQLPrompt, generateSummaryPrompt } = require('./prompt');
 const { executeSQLRemotely, generateSQLQueries, summarizeData } = require('./result');
-const {SchedulerClient, CreateScheduleCommand, DeleteScheduleCommand} = require('@aws-sdk/client-scheduler');
+const {SchedulerClient, CreateScheduleCommand, DeleteScheduleCommand, ScheduleState, FlexibleTimeWindowMode} = require('@aws-sdk/client-scheduler');
 
 require('dotenv').config();
 
@@ -38,7 +38,7 @@ const app = new App({
 
 const remindChannel = async (reminder) => {
     const channelId = reminder.channel;
-    const reminderMessage = `Guys, feel free to gain insights on users, devices and much more!! Ask using the command\`/segwise How many users use Samsung and OnePlus?\``;
+    const reminderMessage = `Guys, feel free to gain insights on users, devices and much more!! Ask using the command\n \`/segwise How many users use Samsung and OnePlus?\``;
     try {
         await app.client.chat.postMessage({
             channel: channelId,
@@ -53,24 +53,31 @@ const setupReminder = async (slackEvent) => {
     try {
         console.log(`Setup reminder: ${slackEvent}`);
         const auth = await app.client.auth.test();
-        if(auth.user == slackEvent.user){
+        console.log(`Bot details ${JSON.stringify(auth)}`);
+        if(auth.user_id == slackEvent.user){
             const client = new SchedulerClient();
             const scheduleDescription = new CreateScheduleCommand({
                 Name: `segwise-reminder-${slackEvent.channel}-1h`,
-                FlexibleTimeWindow: 0,
-                ScheduleExpression: 'rate(1 hour)',
+                FlexibleTimeWindow: {
+                    Mode: FlexibleTimeWindowMode.OFF,
+                },
+                ScheduleExpression: 'rate(1 hours)',
                 GroupName: 'segwise-reminders',
                 Target: {
-                    Arn: '',
-                    RoleArn: '',
+                    Arn: process.env.MESSAGE_QUEUE_ARN,
+                    RoleArn: process.env.SCHEDULER_ROLE_ARN,
                     Input: JSON.stringify({channel: slackEvent.channel}),
-                }
+                },
+                State: ScheduleState.ENABLED,
+
             });
-            return await client.send(scheduleDescription);   
+            const arn = await client.send(scheduleDescription);   
+            console.log(`Schedule setup successfull: ${arn}`)
+            return arn;
         }
     
     } catch (error) {
-        console.log(`Error creating reminder. error=${error}`);
+        console.log(`Error creating reminder. error=${JSON.stringify(error)}`);
     }
 };
 
@@ -78,13 +85,13 @@ const deleteReminder = async (slackEvent) => {
     try {
         console.log(`Delete Reminder: ${slackEvent}`);
         const auth = await app.client.auth.test();
-        if(auth.user === slackEvent.user){
+        if(auth.user_id === slackEvent.user){
             const client = new SchedulerClient();
             const scheduler = new DeleteScheduleCommand({
                 Name: `segwise-reminder-${slackEvent.channel}-1h`,
                 GroupName: `segwise-reminders`,
             });
-            await client.send(scheduler);
+            const arn = await client.send(scheduler);
         }
     } catch (error) {
         console.log(`Error deleting reminser. error=${error}`);
@@ -139,13 +146,24 @@ app.event('member_left_channel', async ({event}) => {
     await deleteReminder(event);
 })
 
+const parseQuery = (body) => {
+    const queries = body.split('&');
+    const obj = {};
+    const pairs = queries.map(query => {
+        let [key, value] = query.split('=').map(data => decodeURIComponent(data));
+        obj[key] = value;
+    });
+    return obj;
+}
 
 module.exports.handler = async (event, context, callback) => {
-    const data = JSON.parse(event);
-    if(data.Records){
-        const payload = JSON.parse(data.Records[0].body);
+    // const data = JSON.parse(event);
+    console.log(`Event received: ${JSON.stringify(event, null, 2)}`);
+    if(event.Records){
+        const payload = JSON.parse(event.Records[0].body);
         try {
             await remindChannel(payload);
+            // callback(null, 200);
         } catch (error) {
             console.log(error);
         } finally {
