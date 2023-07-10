@@ -48,3 +48,7 @@ Segwise assignment for slackbot - support domain-specific QA and reminders of 'u
     - Copy the ngrok url + /slack/events (eg. https://abcdef.ngrok-free.com/slack/events)
     - Use this link to subscribe to Slack events API [setup your app](https://slack.dev/bolt-js/tutorial/getting-started-http#setting-up-events-with-http)
     - Use the bot by adding it to any of the channels 🚀
+
+ ## Architecture of Serverless App
+![Arch drawio](https://github.com/Shikhar03Stark/segwise-slackbot/assets/22128729/d6169c9c-1655-4f3b-8c32-2bd18fb3ed78)
+
